@@ -48,7 +48,7 @@ export default function TopUpPage() {
 
     try {
       if (method === "mpesa") {
-        await apiService.post("wallet/topup", {
+        await apiService.post("wallet/deposit", {
           amount: parseFloat(amount),
           phoneNumber: phone.trim(),
           currency: "KES",
