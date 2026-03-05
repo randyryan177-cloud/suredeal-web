@@ -4,13 +4,14 @@ import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { authEvents, AUTH_EVENTS } from "@/lib/auth-events";
 import { useRouter, usePathname } from "next/navigation";
-import "./globals.css"; // Your Tailwind/CSS imports
+import "./globals.css";
 
 function RootContent({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
+  // Handle Global Auth Events (e.g., Logout from other tabs or 401s)
   useEffect(() => {
     const handleUnauthorized = async () => {
       await logout();
@@ -18,7 +19,10 @@ function RootContent({ children }: { children: React.ReactNode }) {
     };
 
     authEvents.on(AUTH_EVENTS.LOGOUT, handleUnauthorized);
-    return () => authEvents.off(AUTH_EVENTS.LOGOUT, handleUnauthorized);
+    
+    return () => {
+      authEvents.off(AUTH_EVENTS.LOGOUT, handleUnauthorized);
+    };
   }, [logout, router]);
 
   // Handle Protected Route Logic
@@ -34,7 +38,11 @@ function RootContent({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, isLoading, pathname, router]);
 
   if (isLoading) {
-    return <div className="h-screen w-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
   }
 
   return <>{children}</>;
@@ -43,7 +51,7 @@ function RootContent({ children }: { children: React.ReactNode }) {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className="antialiased">
         <AuthProvider>
           <RootContent>{children}</RootContent>
         </AuthProvider>

@@ -75,9 +75,9 @@ export default function CreateListingChoicePage() {
         {/* Choices Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {CHOICES.map((item) => (
+  item.href && (
             <Link 
-              key={item.id} 
-              href={item.href}
+              key={item.id} href={item.href}
               className={`group relative bg-white border-2 border-transparent p-8 rounded-[32px] shadow-sm transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 ${item.borderColor}`}
             >
               <div className={`${item.bgColor} ${item.color} w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
@@ -96,6 +96,7 @@ export default function CreateListingChoicePage() {
               {/* Decorative background element */}
               <div className={`absolute bottom-0 right-0 w-24 h-24 ${item.bgColor} opacity-0 group-hover:opacity-10 rounded-tl-[64px] transition-opacity`} />
             </Link>
+  )
           ))}
         </div>
 

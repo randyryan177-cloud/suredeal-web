@@ -33,7 +33,11 @@ export default function AccountStatusPage() {
 
         <div className="bg-white rounded-[32px] border border-gray-100 overflow-hidden shadow-sm">
           <StatusRow label="Login Status" value={user?.status || "PENDING"} active={isActive} />
-          <StatusRow label="Identity Verification" value={user?.flags?.isVerified ? "Verified" : "Unverified"} active={user?.flags?.isVerified} />
+          <StatusRow 
+  label="Identity Verification" 
+  value={user?.flags?.isVerified ? "Verified" : "Unverified"} 
+  active={!!user?.flags?.isVerified} 
+/>
           <StatusRow label="Fraud Analysis" value={isFraud ? "High Risk" : "No Flags"} active={!isFraud} />
         </div>
 
