@@ -94,7 +94,7 @@ export default function DisputeRequestPage() {
         <div className="px-8 pt-8 pb-6 flex items-center justify-between border-b border-gray-50">
           <div>
             <h1 className="text-2xl font-black text-gray-900 tracking-tighter">Open Dispute</h1>
-            <p className="text-sm text-gray-400 font-medium italic">Deal Reference: #{dealId.toString().slice(-6).toUpperCase()}</p>
+            <p className="text-sm text-gray-400 font-medium italic">Deal Reference: #{dealId ? dealId.toString().slice(-6).toUpperCase() : 'N/A'}</p>
           </div>
           <button aria-label="back" onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <X size={24} className="text-gray-400" />

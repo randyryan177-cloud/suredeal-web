@@ -27,10 +27,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    // If 'reactCompiler' still flags, cast the experimental object
-    reactCompiler: true,
-  } as any, 
+  reactCompiler: true, 
 };
 
 export default nextConfig;
