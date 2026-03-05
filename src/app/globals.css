@@ -18,9 +18,69 @@
     --foreground: #ededed;
   }
 }
+@keyframes suredeal-creative-load {
+  /* WORD PHASE: Expand and Contract Twice */
+  0%, 10% { transform: scale(1); opacity: 1; }
+  5%, 15% { transform: scale(1.15); } 
+  
+  /* ROTATION & MORPH PHASE */
+  25% { transform: rotate(360deg) scale(0); opacity: 0; }
+  
+  /* S-LOGO PHASE: Expand and Contract Twice */
+  40%, 60% { transform: scale(1.5); opacity: 1; }
+  50%, 70% { transform: scale(1.8); }
+  
+  /* RESET PHASE */
+  85% { transform: rotate(-360deg) scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-suredeal {
+  animation: suredeal-creative-load 5s infinite ease-in-out;
+}
+
+/* Logic to hide/show word vs S based on timing */
+.word-container {
+  animation: fade-word 5s infinite;
+}
+
+.s-container {
+  position: absolute;
+  opacity: 0;
+  animation: fade-s 5s infinite;
+}
+
+@keyframes fade-word {
+  0%, 25% { opacity: 1; visibility: visible; }
+  26%, 84% { opacity: 0; visibility: hidden; }
+  85%, 100% { opacity: 1; visibility: visible; }
+}
+
+@keyframes fade-s {
+  0%, 35% { opacity: 0; visibility: hidden; }
+  40%, 80% { opacity: 1; visibility: visible; }
+  81%, 100% { opacity: 0; visibility: hidden; }
+}
+
+@keyframes loading-box {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.3); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+.animate-loading-box { animation: loading-box 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/** * ADD TO globals.css:
+ * @keyframes loading-box {
+ * 0% { transform: rotate(0deg) scale(1); }
+ * 50% { transform: rotate(180deg) scale(1.3); }
+ * 100% { transform: rotate(360deg) scale(1); }
+ * }
+ * .animate-loading-box { animation: loading-box 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+ */
