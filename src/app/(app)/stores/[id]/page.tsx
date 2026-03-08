@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useState, use } from "react";
+import React, { use } from "react";
 import { 
   MapPin, MessageSquare, CheckCircle2, ChevronLeft, 
   Calendar, Package, ShoppingBag 
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import useSWR from "swr";
 import { apiService } from "@/lib/api";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { toast } from "sonner";
@@ -15,11 +16,22 @@ interface StorePageProps {
   params: Promise<{ id: string }>;
 }
 
-const InlineProductCard = ({ item, storeName }: { item: any, storeName: string }) => {
+const fetcher = (url: string) => apiService.get(url).then(res => res.data.data || res.data);
+
+interface CatalogItem {
+  _id: string;
+  listingId: string;
+  title: string;
+  mediaIds?: string[];
+  price?: number;
+  currency?: string;
+}
+
+const InlineProductCard = ({ item, storeName }: { item: CatalogItem, storeName: string }) => {
   const router = useRouter();
   return (
     <div 
-      onClick={() => router.push(`/listing/${item.listingId}`)}
+      onClick={() => router.push(`/listings/${item.listingId}`)}
       className="bg-white rounded-[24px] border border-gray-100 overflow-hidden hover:shadow-xl transition-all cursor-pointer group"
     >
       <div className="relative aspect-square">
@@ -43,43 +55,36 @@ const InlineProductCard = ({ item, storeName }: { item: any, storeName: string }
   );
 };
 
+interface StoreData {
+  name: string;
+  verified?: boolean;
+  location?: { city: string };
+  description?: string;
+  coverPhoto?: string;
+  logoUrl?: string;
+  sdNumber?: string;
+}
+
 export default function StoreProfilePage({ params }: StorePageProps) {
   const resolvedParams = use(params);
   const storeId = resolvedParams.id;
   const router = useRouter();
   
-  const [store, setStore] = useState<any | null>(null);
-  const [listings, setListings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const isAnonymous = !storeId || storeId.includes("anonymous");
 
-  useEffect(() => {
-    if (!storeId || storeId.includes("anonymous")) return;
+  const { data: store, error: storeError } = useSWR<StoreData>(
+    !isAnonymous ? `/stores/${storeId}` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5000 }
+  );
 
-    const fetchStoreData = async () => {
-      try {
-        setLoading(true);
-        const [storeRes, catalogRes] = await Promise.all([
-          apiService.get(`/stores/${storeId}`),
-          apiService.get(`/stores/${storeId}/catalog`).catch(() => ({ data: { data: [] } }))
-        ]);
+  const { data: listings = [] } = useSWR<CatalogItem[]>(
+    !isAnonymous && store ? `/stores/${storeId}/catalog` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5000, fallbackData: [] }
+  );
 
-        const storeResult = storeRes.data?.data;
-
-        if (storeResult && storeResult._id) {
-          setStore(storeResult);
-          // Try to find listings in either the catalog response or the store response
-          const catalogResult = catalogRes.data?.data || storeResult.listings || [];
-          setListings(Array.isArray(catalogResult) ? catalogResult : []);
-        }
-      } catch (error: any) {
-        console.error("Store Fetch Error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStoreData();
-  }, [storeId]);
+  const loading = !store && !storeError && !isAnonymous;
 
   if (loading) return <LoadingScreen />;
   
@@ -99,6 +104,7 @@ export default function StoreProfilePage({ params }: StorePageProps) {
           alt="Cover"
           fill
           className="object-cover opacity-60"
+          priority
         />
         <button aria-label="back" onClick={() => router.back()} className="absolute top-6 left-6 p-2 bg-white/20 backdrop-blur-lg rounded-full">
           <ChevronLeft size={20} className="text-white" />
@@ -108,7 +114,7 @@ export default function StoreProfilePage({ params }: StorePageProps) {
       <div className="max-w-4xl mx-auto px-6">
         <div className="relative flex flex-col items-center -mt-12">
           <div className="relative w-28 h-28 rounded-[32px] border-4 border-white bg-white shadow-xl overflow-hidden">
-            <Image src={store.logoUrl || "/placeholder.png"} alt={store.name} fill className="object-cover" />
+            <Image src={store.logoUrl || "/placeholder.png"} alt={store.name} fill className="object-cover" priority />
           </div>
 
           <div className="mt-4 text-center">

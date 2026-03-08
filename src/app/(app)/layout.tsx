@@ -3,6 +3,9 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Toaster } from "sonner";
+import { SocketNotificationListener } from "@/components/SocketNotificationListener";
+import { OfflineStatus } from "@/components/ui/OfflineStatus";
 import { Home, MessageSquare, Handshake, Store, Wallet, Bell, Menu, Search } from "lucide-react";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -19,24 +22,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      {/* Top Header */}
+      {/* 1. Global Listeners (Invisible logic) */}
+      <OfflineStatus />
+      <SocketNotificationListener />
+      <Toaster expand={false} richColors closeButton position="top-center" />
+
+      {/* 2. Top Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-white border-b sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="bg-blue-600 w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xl">S</div>
           <span className="text-xl font-extrabold text-gray-900">SureDeal</span>
         </div>
         <div className="flex gap-4">
-          <Link href="/search" className="p-2 hover:bg-gray-100 rounded-full transition" aria-label="Search Marketplace" title="search"><Search size={22} /></Link>
-          <Link href="/menu" className="p-2 hover:bg-gray-100 rounded-full transition" aria-label="Open Menu" title="menu"><Menu size={22} /></Link>
+          <Link href="/search" className="p-2 hover:bg-gray-100 rounded-full transition" aria-label="Search"><Search size={22} /></Link>
+          <Link href="/menu" className="p-2 hover:bg-gray-100 rounded-full transition" aria-label="Menu"><Menu size={22} /></Link>
         </div>
       </header>
 
-      {/* Main Content Area */}
+      {/* 3. Main Content Area (Render children ONLY here) */}
       <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
         {children}
       </main>
 
-      {/* Bottom Navigation (Mobile) / Side Nav (Desktop logic can be added) */}
+      {/* 4. Bottom Navigation */}
       <nav className="fixed bottom-0 w-full bg-white border-t flex justify-around items-center h-16 md:h-20 z-50">
         {navItems.map((item) => {
           const Icon = item.icon;

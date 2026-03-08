@@ -1,71 +1,107 @@
 "use client";
 
-import React, { useEffect, useState, use } from "react";
+import React, { useState, use } from "react";
 import { 
-  ChevronLeft, Share2, MapPin, Eye, Calendar, 
+  ChevronLeft, Share2, MapPin, 
   MessageSquare, ShieldCheck, CheckCircle, 
   ChevronRight, Image as ImageIcon, Heart, Send, User
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import useSWR from "swr";
 import { apiService } from "@/lib/api";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { toast } from "sonner";
 
-export default function ListingDetailPage({ params }: any) {
+const fetcher = (url: string) => apiService.get(url).then(res => res.data.data || res.data);
+
+interface ListingCategory {
+  _id: string;
+  name: string;
+}
+
+interface ListingOwner {
+  name: string;
+  logo?: string;
+  verified?: boolean;
+  sdNumber?: string;
+  storeId?: string;
+  category?: string; // For store category
+}
+
+interface ListingStats {
+  likes: number;
+  commentCount: number;
+  rate?: number;
+}
+
+interface ListingData {
+  listingId: string;
+  title: string;
+  description?: string;
+  price?: number;
+  currency?: string;
+  type?: string;
+  mediaIds?: string[];
+  category?: ListingCategory;
+  owner?: ListingOwner;
+  store?: ListingOwner;
+  stats?: ListingStats;
+  isLiked?: boolean;
+  location?: { city: string };
+  rate?: number; // Some parts use listing.rate directly
+}
+
+interface CommentData {
+  _id: string;
+  content: string;
+  createdAt: string;
+  user?: {
+    name: string;
+    profilePhoto?: string;
+    displayName?: string;
+    userName?: string;
+  };
+  userName?: string; // Some parts use c.userName
+}
+
+export default function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const listingId = (resolvedParams as any).id;
+  const listingId = resolvedParams.id;
   const router = useRouter();
 
-  const [listing, setListing] = useState<any>(null);
-  const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
-  const [loading, setLoading] = useState(true);
   const [isLiking, setIsLiking] = useState(false);
   const [isCommenting, setIsCommenting] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  const fetchData = async () => {
-    try {
-      const [detailsRes, commentsRes] = await Promise.all([
-        apiService.get(`/marketplace/${listingId}`),
-        apiService.get(`/marketplace/listings/${listingId}/comments`)
-      ]);
+  const { data: listing, error: listingError, mutate: mutateListing } = useSWR<ListingData>(
+    listingId ? `/marketplace/listings/${listingId}` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5000 }
+  );
 
-      // 1. Handle Listing Data
-      setListing(detailsRes.data.data || detailsRes.data);
-
-      // 2. Handle Comments Data (The Fix)
-      // Check every possible place the array could be hiding
-      const rawComments = commentsRes.data;
-      const commentsArray = Array.isArray(rawComments) 
-        ? rawComments 
-        : (rawComments?.data || rawComments?.comments || []);
-      
-      setComments(commentsArray);
-
-    } catch (error) {
-      console.error("Fetch error:", error);
-      toast.error("Could not load details");
-      setComments([]); // Fallback to empty array on error
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchData(); }, [listingId]);
+  const { data: comments, mutate: mutateComments } = useSWR<CommentData[]>(
+    listingId ? `/marketplace/listings/${listingId}/comments` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5000 }
+  );
 
   const handleLike = async () => {
+    if (!listing) return;
     setIsLiking(true);
     try {
       await apiService.post(`/marketplace/listings/${listingId}/like`);
       // Optimistic update
-      setListing((prev: any) => ({
-        ...prev,
-        stats: { ...prev.stats, likes: (prev.stats?.likes || 0) + 1 }
-      }));
+      mutateListing({
+        ...listing,
+        stats: { 
+          likes: (listing.stats?.likes || 0) + 1,
+          commentCount: listing.stats?.commentCount || 0
+        }
+      }, false);
       toast.success("Added to interests");
-    } catch (err) {
+    } catch {
       toast.error("Failed to like");
     } finally {
       setIsLiking(false);
@@ -94,25 +130,26 @@ export default function ListingDetailPage({ params }: any) {
 
       // 4. Update State (Optimistic approach)
       // We prepend the new comment so it appears at the top
-      setComments((prev) => [newlyCreatedComment, ...prev]);
+      mutateComments([newlyCreatedComment, ...(comments || [])], false);
       
       // 5. Reset UI
       setNewComment("");
       toast.success("Comment posted successfully");
-    } catch (err: any) {
-      console.error("Comment Post Error:", err.response?.data || err.message);
+    } catch (err) {
+      const error = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
+      console.error("Comment Post Error:", error.response?.data || error.message);
       
       // Handle 401/403 (Not logged in)
-      if (err.response?.status === 401) {
+      if (error.response?.status === 401) {
         toast.error("Please login to post a comment");
       } else {
-        toast.error(err.response?.data?.message || "Failed to post comment. Try again.");
+        toast.error(error.response?.data?.message || "Failed to post comment. Try again.");
       }
     } finally {
       setIsCommenting(false);
     }
   };
-  if (loading) return <LoadingScreen />;
+  if (!listing && !listingError) return <LoadingScreen />;
   if (!listing) return <div className="p-20 text-center font-bold">Listing not found.</div>;
 
   const isService = listing.type === "SERVICE";
@@ -156,7 +193,7 @@ export default function ListingDetailPage({ params }: any) {
           {/* Comments Section (Desktop/Large screen view) */}
           <div className="mt-12 space-y-6">
              <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
-                Discussion <span className="text-sm font-bold text-gray-400">({comments.length})</span>
+                Discussion <span className="text-sm font-bold text-gray-400">({comments?.length || 0})</span>
              </h3>
              <form onSubmit={handlePostComment} className="flex gap-3">
                 <div className="flex-1 bg-white border border-gray-200 rounded-2xl px-4 py-2 flex items-center focus-within:ring-2 focus-within:ring-blue-100 transition-all">
@@ -186,7 +223,7 @@ export default function ListingDetailPage({ params }: any) {
     </div>
   ))}
   
-  {comments.length === 0 && (
+  {(!comments || comments.length === 0) && (
     <p className="text-center py-10 text-gray-400 text-xs font-bold uppercase tracking-widest">
       No comments yet. Be the first to comment!
     </p>
@@ -204,7 +241,7 @@ export default function ListingDetailPage({ params }: any) {
               </span>
               <h1 className="text-3xl font-black text-gray-900 mt-3 leading-tight">{listing.title}</h1>
               <div className="flex items-center gap-4 mt-4">
-                <div className="text-2xl font-black text-blue-600">KES {parseFloat(price).toLocaleString()}</div>
+                <div className="text-2xl font-black text-blue-600">KES {parseFloat(price?.toString() || "0").toLocaleString()}</div>
                 <div className="flex items-center gap-1 text-gray-400 text-xs font-bold uppercase"><MapPin size={12} /> {listing.location?.city}</div>
               </div>
             </div>

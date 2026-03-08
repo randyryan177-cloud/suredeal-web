@@ -36,6 +36,12 @@ export default function TransferPage() {
   const debouncedSdNumber = useDebounce(sdNumber, 600);
   const isAI = sdNumber === SYSTEM_AI_SD;
 
+  const formData = {
+    recipientSdNumber: sdNumber,
+    amount,
+    securePin: pin
+  };
+
   useEffect(() => {
     fetchBalance();
   }, []);
@@ -50,7 +56,7 @@ export default function TransferPage() {
 
   const fetchBalance = async () => {
     try {
-      const res = await apiService.get("wallet/balance");
+      const res = await apiService.get("/wallet/balance");
       const bal = res.data.wallet?.available || res.data.available || 0;
       setAvailableBalance(parseFloat(bal));
     } catch (e) { console.error(e); }
@@ -59,7 +65,7 @@ export default function TransferPage() {
   const lookupRecipient = async () => {
     setIsSearching(true);
     try {
-      const res = await apiService.get(`recipient/${debouncedSdNumber}`);
+      const res = await apiService.get(`/wallet/recipient/${debouncedSdNumber}`);
       setRecipient(res.data || null);
     } catch (e) {
       setRecipient(null);
@@ -83,15 +89,17 @@ export default function TransferPage() {
     e.preventDefault();
     if (pin.length < 4) return;
 
+    const payload = {
+    recipientSDNumber: formData.recipientSdNumber, // Rename to match backend
+    amount: Number(formData.amount),
+    pin: formData.securePin, // Rename 'securePin' to 'pin'
+  };
+
     setLoading(true);
     try {
-      await apiService.post("wallet/transfer-p2p", {
-        recipientSdNumber: sdNumber,
-        amount: parseFloat(amount),
-        securePin: pin,
-      });
+      await apiService.post("/wallet/transfer-p2p", payload);
 
-      alert(`Transfer successful to ${recipient?.fullName || "SureDeal AI"}`);
+      alert(`Transfer successful to ${recipient?.displayName || "SureDeal User"}!`);
       router.push("/wallet");
     } catch (error: any) {
       alert(error.response?.data?.message || "Transfer failed.");
@@ -162,7 +170,7 @@ export default function TransferPage() {
               )}
               {recipient && (
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100 animate-in fade-in duration-300">
-                  <span className="text-xs font-bold italic">Paying: {recipient.fullName}</span>
+                  <span className="text-xs font-bold italic">Paying: {recipient.displayName}</span>
                 </div>
               )}
             </div>
@@ -210,11 +218,12 @@ export default function TransferPage() {
             <h3 className="text-xl font-black text-gray-900 mb-2">Authorize Payment</h3>
             <p className="text-sm font-medium text-gray-500 mb-8 px-4">
               Sending <span className="text-gray-900 font-bold">KES {amount}</span> to <br/>
-              <span className="text-blue-600 font-bold">{recipient?.fullName || "SureDeal AI"}</span>
+              <span className="text-blue-600 font-bold">{recipient?.displayName || "SureDeal User"}</span>
             </p>
             
             <form onSubmit={handleFinalTransfer}>
               <input 
+                aria-label="password"
                 type="password"
                 maxLength={4}
                 autoFocus

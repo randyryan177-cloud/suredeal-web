@@ -1,5 +1,5 @@
 // lib/upload-service.ts
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dfckq0ksp";
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ;
 const UPLOAD_PRESET = "suredeal-presets";
 
 export const UploadService = {

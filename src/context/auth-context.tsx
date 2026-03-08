@@ -41,6 +41,7 @@ interface AuthContextType {
   isLoading: boolean;
   user: User | null;
   firebaseUser: FirebaseUser | null;
+  token: string | null;
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -50,6 +51,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [token, setToken] = useState<string | null>(null); 
   //const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
@@ -76,6 +78,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // 2. Define refreshUser with useCallback to fix the dependency error
   const refreshUser = useCallback(async () => {
     try {
+      const jwt = await auth.currentUser?.getIdToken();
+      setToken(jwt || null);
       const res = await apiService.get("auth/me");
       const userData = res.data.user;
       setUser(userData);
@@ -112,6 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!firebaseUser,
         isLoading,
         user,
+        token,
         firebaseUser,
         setUser,
         logout,

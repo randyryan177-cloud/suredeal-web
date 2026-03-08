@@ -17,6 +17,7 @@ import Image from "next/image";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
+import { UploadService } from "@/lib/upload-service";
 
 export default function EscrowPartialPage() {
   const router = useRouter();
@@ -57,6 +58,7 @@ export default function EscrowPartialPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!form.productDescription || !form.duration) {
       return toast.error("Missing Information", { 
         description: "Please describe the product and payment duration." 
@@ -65,17 +67,16 @@ export default function EscrowPartialPage() {
 
     setLoading(true);
     try {
-      // 1. Upload Images
-      const uploadedUrls = [];
+      // 1. Upload Images using the new UploadService
+      const uploadedUrls: string[] = [];
+      
       for (const file of images) {
-        const formData = new FormData();
-        formData.append("file", file);
-        // Using your existing media upload endpoint
-        const res = await apiService.post("/upload", formData);
-        uploadedUrls.push(res.data.url);
+        // We specify "image" as the type for Cloudinary resource routing
+        const url = await UploadService.uploadMedia(file, "image");
+        uploadedUrls.push(url);
       }
 
-      // 2. Send Request
+      // 2. Send Request to your Backend
       const payload = {
         storeId,
         type: "LIPA_MDOGO_REQUEST",
@@ -83,19 +84,25 @@ export default function EscrowPartialPage() {
           ...form,
           fullName: user?.displayName,
           sdNumber: user?.sdNumber,
-          referenceImages: uploadedUrls,
+          referenceImages: uploadedUrls, // Now contains Cloudinary secure_urls
         },
       };
 
-      await apiService.post(`/marketplace/stores/${storeId}/request-partial`, payload);
+      await apiService.post(`/lipa-mdogo/request`, payload);
 
       toast.success("Request Sent!", {
         description: `Your Lipa Mdogo request has been sent to ${storeName}.`,
       });
       
+      // Cleanup previews to free up memory
+      previews.forEach(url => URL.revokeObjectURL(url));
+      
       router.push(`/stores/${storeId}`);
-    } catch (error) {
-      toast.error("Submission failed", { description: "Please try again later." });
+    } catch (error: any) {
+      console.error("Submission Error:", error);
+      toast.error("Submission failed", { 
+        description: error.message || "Please check your internet connection and try again." 
+      });
     } finally {
       setLoading(false);
     }

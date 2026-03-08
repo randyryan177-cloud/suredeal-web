@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { 
   Search, 
   Filter, 
-  //Plus, 
   MapPin, 
   ShoppingBag, 
   Briefcase, 
   Loader2,
   Heart
 } from "lucide-react";
+import useSWR from "swr";
 import { useDebounce } from "@/hooks/useDebounce";
 import { apiService } from "@/lib/api";
 import Link from "next/link";
@@ -18,34 +18,31 @@ import Image from "next/image";
 
 type ListingType = "PRODUCT" | "SERVICE";
 
+interface MarketplaceListing {
+  listingId: string;
+  title: string;
+  type: string;
+  mediaIds?: string[];
+  price?: number;
+  location?: { city: string };
+}
+
+const fetcher = ([url, params]: [string, any]): Promise<MarketplaceListing[]> => 
+  apiService.get(url, { params }).then(res => res.data.data || res.data);
+
 export default function MarketplacePage() {
   const [activeTab, setActiveTab] = useState<ListingType>("PRODUCT");
   const [searchQuery, setSearchQuery] = useState("");
-  const [listings, setListings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const debouncedSearch = useDebounce(searchQuery, 500);
 
-  const fetchMarketplace = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiService.get(`marketplace`, {
-        params: {
-          q: debouncedSearch,
-          type: activeTab,
-        },
-      });
-      setListings(res.data.data || res.data);
-    } catch (error) {
-      console.error("Marketplace fetch error", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedSearch, activeTab]);
+  const { data: listings = [], isLoading } = useSWR<MarketplaceListing[]>(
+    [`marketplace`, { q: debouncedSearch, type: activeTab }],
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5000 }
+  );
 
-  useEffect(() => {
-    fetchMarketplace();
-  }, [fetchMarketplace]);
+  const loading = isLoading && !listings.length;
 
   return (
     <main className="min-h-screen bg-[#F9FAFB]">
@@ -131,7 +128,13 @@ export default function MarketplacePage() {
 
 // --- SUB-COMPONENTS ---
 
-function TabButton({ active, onClick, icon, label, activeColor }: any) {
+function TabButton({ active, onClick, icon, label, activeColor }: { 
+  active: boolean; 
+  onClick: () => void; 
+  icon: React.ReactNode; 
+  label: string; 
+  activeColor: string; 
+}) {
   return (
     <button 
       onClick={onClick}
@@ -147,7 +150,7 @@ function TabButton({ active, onClick, icon, label, activeColor }: any) {
   );
 }
 
-function ListingCard({ item }: { item: any }) {
+function ListingCard({ item }: { item: MarketplaceListing }) {
   return (
     <Link href={`/listings/${item.listingId}`} className="group">
       <div className="bg-white rounded-[24px] overflow-hidden border border-gray-100 hover:shadow-xl transition-all hover:-translate-y-1">

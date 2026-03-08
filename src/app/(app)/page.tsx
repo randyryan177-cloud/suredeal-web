@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import { apiService } from "@/lib/api";
 import { ListingCard } from "@/components/home/ListingCard"; 
@@ -8,29 +9,45 @@ import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { Sparkles, RefreshCcw, PackageSearch } from "lucide-react";
 import Link from "next/link";
 
+interface HomeListing {
+  _id: string;
+  listingId: string;
+  title: string;
+  mediaIds?: string[];
+  price?: number;
+  currency?: string;
+  createdAt?: string;
+  isLiked?: boolean;
+  owner?: {
+    name: string;
+    logo?: string;
+    verified?: boolean;
+    sdNumber?: string;
+    storeId?: string;
+  };
+  stats?: {
+    likes: number;
+    commentCount: number;
+  };
+}
+
+const fetcher = (url: string): Promise<HomeListing[]> => apiService.get(url).then(res => res.data.success ? res.data.data : []);
+
 export default function HomePage() {
   const router = useRouter();
-  const [posts, setPosts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchFeed = async (quiet = false) => {
-    try {
-      if (!quiet) setIsLoading(true);
-      const response = await apiService.get("/discovery/feed");
-      
-      if (response.data && response.data.success) {
-        setPosts(response.data.data);
-      }
-    } catch (err) {
-      console.error("Feed error:", err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+  const { data: posts = [], error, isLoading, mutate } = useSWR<HomeListing[]>(
+    "/discovery/feed",
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5000 }
+  );
 
-  useEffect(() => { fetchFeed(); }, []);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await mutate();
+    setIsRefreshing(false);
+  };
 
   if (isLoading) return <LoadingScreen />;
 
@@ -38,7 +55,7 @@ export default function HomePage() {
     <main className="min-h-screen bg-[#fafafa] pb-28">
       <div className="max-w-xl mx-auto pt-4 px-2 md:px-0">
         <button 
-          onClick={() => { setIsRefreshing(true); fetchFeed(true); }}
+          onClick={handleRefresh}
           className="flex items-center gap-2 text-[10px] font-black tracking-widest text-gray-400 mx-auto mb-6 hover:text-blue-600 transition-all uppercase"
         >
           <RefreshCcw size={14} className={isRefreshing ? "animate-spin" : ""} />
@@ -64,7 +81,7 @@ export default function HomePage() {
               title={item.title}
               price={item.price} // Ensure your Card displays the price
               currency={item.currency}
-              createdAt={item.createdAt}
+              createdAt={item.createdAt || new Date().toISOString()}
               
               likes={item.stats?.likes || 0}
               isLiked={item.isLiked || false}

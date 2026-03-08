@@ -1,39 +1,56 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { io, Socket } from "socket.io-client";
+import { useAuth } from "@/context/auth-context"; 
 
-const BASE_URL = "https://suredealbackend-production-8780.up.railway.app";
+const BASE_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "https://suredealbackend-production-8780.up.railway.app";
+
+// We keep a reference outside the hook to ensure we don't recreate it 
+// every time the hook is called in different components.
+let globalSocket: Socket | null = null;
 
 export const useSocket = () => {
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const { token } = useAuth();
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Only run on client
-    if (typeof window === "undefined") return;
+    if (!token) {
+      if (globalSocket) {
+        globalSocket.disconnect();
+        globalSocket = null;
+        setIsConnected(false);
+      }
+      return;
+    }
 
-    // Create the socket instance
-    const socketInstance = io(BASE_URL, {
-      transports: ["websocket"],
-      autoConnect: true,
-      reconnection: true,
-    });
+    // Only create if it doesn't exist
+    if (!globalSocket) {
+      globalSocket = io(BASE_URL, {
+        transports: ["websocket"],
+        auth: { token },
+        reconnection: true,
+      });
+    }
 
-    socketRef.current = socketInstance;
-    setSocket(socketInstance);
+    // Subscribe to status changes (this is the "platform API" pattern React wants)
+    const onConnect = () => setIsConnected(true);
+    const onDisconnect = () => setIsConnected(false);
 
-    socketInstance.on("connect", () => {
-      console.log("✅ Connected:", socketInstance.id);
-    });
+    globalSocket.on("connect", onConnect);
+    globalSocket.on("disconnect", onDisconnect);
 
-    // Cleanup on unmount
+    // Initial state check
+    setIsConnected(globalSocket.connected);
+
     return () => {
-      socketInstance.disconnect();
-      socketRef.current = null;
-      setSocket(null);
+      if (globalSocket) {
+        globalSocket.off("connect", onConnect);
+        globalSocket.off("disconnect", onDisconnect);
+      }
     };
-  }, []);
+  }, [token]);
 
-  return socket;
+  // We return the global instance. useMemo ensures we aren't 
+  // triggering downstream re-renders unless the connection status actually matters.
+  return useMemo(() => globalSocket, [isConnected, token]);
 };

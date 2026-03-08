@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { 
   ShieldCheck, 
   MapPin, 
@@ -18,13 +18,13 @@ import {
   Bot,
   RefreshCcw,
 } from "lucide-react";
+import useSWR from "swr";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 
-// --- TYPES ---
 interface ProfileStats {
   rating?: string;
   completedDeals?: number | string;
@@ -57,34 +57,28 @@ interface MerchantStore {
   stats?: { listingCount: number };
 }
 
+const fetcher = (url: string) => apiService.get(url).then(res => res.data);
+const storesFetcher = (url: string) => apiService.get(url).then(res => res.data.data || []);
+
 export default function ProfilePage() {
   const { logout } = useAuth();
   const router = useRouter();
   
   const [activeTab, setActiveTab] = useState<"listings" | "saved" | "reviews">("listings");
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [myStores, setMyStores] = useState<MerchantStore[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const { data: profileData, error: profileError, mutate: mutateProfile } = useSWR<ProfileData>(
+    "profile/me",
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5000 }
+  );
 
-  const fetchProfile = async () => {
-    setLoading(true);
-    try {
-      const [profileRes, storesRes] = await Promise.all([
-        apiService.get("profile/me"),
-        apiService.get("stores/me"),
-      ]);
-      setProfileData(profileRes.data);
-      setMyStores(storesRes.data.data || []);
-    } catch (error) {
-      console.error("Profile Fetch Error", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: myStores = [] } = useSWR<MerchantStore[]>(
+    "stores/me",
+    storesFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5000 }
+  );
+
+  const loading = !profileData && !profileError;
 
   if (loading) return <LoadingScreen />;
 
@@ -93,7 +87,7 @@ export default function ProfilePage() {
       <AlertOctagon size={64} className="text-red-500 mb-4" />
       <h2 className="text-xl font-bold text-gray-900">Failed to load profile</h2>
       <button 
-        onClick={fetchProfile}
+        onClick={() => mutateProfile()}
         className="mt-6 flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all"
       >
         <RefreshCcw size={18} /> Try Again
